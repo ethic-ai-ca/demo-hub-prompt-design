@@ -327,6 +327,8 @@ export const MessageResponse = memo(
     <Streamdown
       className={cn(
         "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+        "**:data-[streamdown=code-block]:max-w-full **:data-[streamdown=code-block]:min-w-0",
+        "**:data-[streamdown=code-block-body]:min-w-0 **:data-[streamdown=code-block-body]:overflow-x-auto",
         className
       )}
       plugins={streamdownPlugins}

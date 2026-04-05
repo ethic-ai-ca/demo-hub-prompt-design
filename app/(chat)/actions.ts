@@ -2,11 +2,10 @@
 
 import { generateText, type UIMessage } from "ai";
 import { cookies } from "next/headers";
-import { auth } from "@/app/(auth)/auth";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
-import { titleModel } from "@/lib/ai/models";
 import { titlePrompt } from "@/lib/ai/prompts";
 import { getTitleModel } from "@/lib/ai/providers";
+import { isEphemeralChatMode } from "@/lib/constants";
 import {
   deleteMessagesByChatIdAfterTimestamp,
   getChatById,
@@ -29,9 +28,6 @@ export async function generateTitleFromUserMessage({
     model: getTitleModel(),
     system: titlePrompt,
     prompt: getTextFromMessage(message),
-    providerOptions: {
-      gateway: { order: titleModel.gatewayOrder },
-    },
   });
   return text
     .replace(/^[#*"\s]+/, "")
@@ -40,19 +36,13 @@ export async function generateTitleFromUserMessage({
 }
 
 export async function deleteTrailingMessages({ id }: { id: string }) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
+  if (isEphemeralChatMode) {
+    return;
   }
 
   const [message] = await getMessageById({ id });
   if (!message) {
     throw new Error("Message not found");
-  }
-
-  const chat = await getChatById({ id: message.chatId });
-  if (!chat || chat.userId !== session.user.id) {
-    throw new Error("Unauthorized");
   }
 
   await deleteMessagesByChatIdAfterTimestamp({
@@ -68,14 +58,13 @@ export async function updateChatVisibility({
   chatId: string;
   visibility: VisibilityType;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
+  if (isEphemeralChatMode) {
+    return;
   }
 
   const chat = await getChatById({ id: chatId });
-  if (!chat || chat.userId !== session.user.id) {
-    throw new Error("Unauthorized");
+  if (!chat) {
+    throw new Error("Chat not found");
   }
 
   await updateChatVisibilityById({ chatId, visibility });

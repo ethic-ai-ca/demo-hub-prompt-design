@@ -16,6 +16,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import type { ArtifactKind } from "@/components/chat/artifact";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
+import { ANONYMOUS_USER_ID, isEphemeralChatMode } from "../constants";
 import { ChatbotError } from "../errors";
 import { generateUUID } from "../utils";
 import {
@@ -329,6 +330,20 @@ export async function saveDocument({
   content: string;
   userId: string;
 }) {
+  if (isEphemeralChatMode) {
+    const createdAt = new Date();
+    return [
+      {
+        id,
+        title,
+        kind,
+        content,
+        userId: userId || ANONYMOUS_USER_ID,
+        createdAt,
+      },
+    ];
+  }
+
   try {
     return await db
       .insert(document)
@@ -353,6 +368,20 @@ export async function updateDocumentContent({
   id: string;
   content: string;
 }) {
+  if (isEphemeralChatMode) {
+    const createdAt = new Date();
+    return [
+      {
+        id,
+        title: "",
+        kind: "text" as ArtifactKind,
+        content,
+        userId: ANONYMOUS_USER_ID,
+        createdAt,
+      },
+    ];
+  }
+
   try {
     const docs = await db
       .select()
@@ -383,6 +412,10 @@ export async function updateDocumentContent({
 }
 
 export async function getDocumentsById({ id }: { id: string }) {
+  if (isEphemeralChatMode) {
+    return [];
+  }
+
   try {
     const documents = await db
       .select()
@@ -400,6 +433,10 @@ export async function getDocumentsById({ id }: { id: string }) {
 }
 
 export async function getDocumentById({ id }: { id: string }) {
+  if (isEphemeralChatMode) {
+    return undefined;
+  }
+
   try {
     const [selectedDocument] = await db
       .select()
@@ -423,6 +460,10 @@ export async function deleteDocumentsByIdAfterTimestamp({
   id: string;
   timestamp: Date;
 }) {
+  if (isEphemeralChatMode) {
+    return [];
+  }
+
   try {
     await db
       .delete(suggestion)
@@ -450,6 +491,10 @@ export async function saveSuggestions({
 }: {
   suggestions: Suggestion[];
 }) {
+  if (isEphemeralChatMode) {
+    return;
+  }
+
   try {
     return await db.insert(suggestion).values(suggestions);
   } catch (_error) {
@@ -465,6 +510,10 @@ export async function getSuggestionsByDocumentId({
 }: {
   documentId: string;
 }) {
+  if (isEphemeralChatMode) {
+    return [];
+  }
+
   try {
     return await db
       .select()

@@ -3,18 +3,13 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  generateId,
   stepCountIs,
   streamText,
+  type UIMessage,
 } from "ai";
 import { checkBotId } from "botid/server";
-import { after } from "next/server";
-import { createResumableStreamContext } from "resumable-stream";
-import { auth, type UserType } from "@/app/(auth)/auth";
-import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import {
   allowedModelIds,
-  chatModels,
   DEFAULT_CHAT_MODEL,
   getCapabilities,
 } from "@/lib/ai/models";
@@ -25,37 +20,29 @@ import { editDocument } from "@/lib/ai/tools/edit-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
-import { isProductionEnvironment } from "@/lib/constants";
-import {
-  createStreamId,
-  deleteChatById,
-  getChatById,
-  getMessageCountByUserId,
-  getMessagesByChatId,
-  saveChat,
-  saveMessages,
-  updateChatTitleById,
-  updateMessage,
-} from "@/lib/db/queries";
-import type { DBMessage } from "@/lib/db/schema";
+import { isEphemeralChatMode, isProductionEnvironment } from "@/lib/constants";
 import { ChatbotError } from "@/lib/errors";
+import { anonymousToolSession } from "@/lib/tool-session";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import type { ChatMessage } from "@/lib/types";
-import { convertToUIMessages, generateUUID } from "@/lib/utils";
+import { generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
 export const maxDuration = 60;
 
-function getStreamContext() {
-  try {
-    return createResumableStreamContext({ waitUntil: after });
-  } catch (_) {
-    return null;
+function hasToolApprovalContinuation(messages: ChatMessage[]): boolean {
+  const last = messages.at(-1);
+  if (last && last.role !== "user") {
+    return true;
   }
+  return messages.some((msg) =>
+    msg.parts?.some((part) => {
+      const state = (part as { state?: string }).state;
+      return state === "approval-responded" || state === "output-denied";
+    })
+  );
 }
-
-export { getStreamContext };
 
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
@@ -68,17 +55,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, messages, selectedChatModel, selectedVisibilityType } =
-      requestBody;
+    const { id, messages, selectedChatModel } = requestBody;
 
-    const [, session] = await Promise.all([
-      checkBotId().catch(() => null),
-      auth(),
-    ]);
+    await checkBotId().catch(() => null);
 
-    if (!session?.user) {
-      return new ChatbotError("unauthorized:chat").toResponse();
-    }
+    const session = anonymousToolSession;
 
     const chatModel = allowedModelIds.has(selectedChatModel)
       ? selectedChatModel
@@ -86,74 +67,26 @@ export async function POST(request: Request) {
 
     await checkIpRateLimit(ipAddress(request));
 
-    const userType: UserType = session.user.type;
-
-    const messageCount = await getMessageCountByUserId({
-      id: session.user.id,
-      differenceInHours: 1,
-    });
-
-    if (messageCount > entitlementsByUserType[userType].maxMessagesPerHour) {
-      return new ChatbotError("rate_limit:chat").toResponse();
+    if (!process.env.OPENAI_API_KEY) {
+      console.error("OPENAI_API_KEY is not set");
+      return new ChatbotError("offline:chat").toResponse();
     }
 
-    const isToolApprovalFlow = Boolean(messages);
+    const isToolApprovalFlow = hasToolApprovalContinuation(
+      messages as ChatMessage[]
+    );
 
-    const chat = await getChatById({ id });
-    let messagesFromDb: DBMessage[] = [];
+    const uiMessages = messages as ChatMessage[];
+
     let titlePromise: Promise<string> | null = null;
-
-    if (chat) {
-      if (chat.userId !== session.user.id) {
-        return new ChatbotError("forbidden:chat").toResponse();
-      }
-      messagesFromDb = await getMessagesByChatId({ id });
-    } else if (message?.role === "user") {
-      await saveChat({
-        id,
-        userId: session.user.id,
-        title: "New chat",
-        visibility: selectedVisibilityType,
+    if (
+      messages.length === 1 &&
+      messages[0].role === "user" &&
+      !isToolApprovalFlow
+    ) {
+      titlePromise = generateTitleFromUserMessage({
+        message: messages[0] as UIMessage,
       });
-      titlePromise = generateTitleFromUserMessage({ message });
-    }
-
-    let uiMessages: ChatMessage[];
-
-    if (isToolApprovalFlow && messages) {
-      const dbMessages = convertToUIMessages(messagesFromDb);
-      const approvalStates = new Map(
-        messages.flatMap(
-          (m) =>
-            m.parts
-              ?.filter(
-                (p: Record<string, unknown>) =>
-                  p.state === "approval-responded" ||
-                  p.state === "output-denied"
-              )
-              .map((p: Record<string, unknown>) => [
-                String(p.toolCallId ?? ""),
-                p,
-              ]) ?? []
-        )
-      );
-      uiMessages = dbMessages.map((msg) => ({
-        ...msg,
-        parts: msg.parts.map((part) => {
-          if (
-            "toolCallId" in part &&
-            approvalStates.has(String(part.toolCallId))
-          ) {
-            return { ...part, ...approvalStates.get(String(part.toolCallId)) };
-          }
-          return part;
-        }),
-      })) as ChatMessage[];
-    } else {
-      uiMessages = [
-        ...convertToUIMessages(messagesFromDb),
-        message as ChatMessage,
-      ];
     }
 
     const { longitude, latitude, city, country } = geolocation(request);
@@ -165,28 +98,14 @@ export async function POST(request: Request) {
       country,
     };
 
-    if (message?.role === "user") {
-      await saveMessages({
-        messages: [
-          {
-            chatId: id,
-            id: message.id,
-            role: "user",
-            parts: message.parts,
-            attachments: [],
-            createdAt: new Date(),
-          },
-        ],
-      });
-    }
-
-    const modelConfig = chatModels.find((m) => m.id === chatModel);
     const modelCapabilities = await getCapabilities();
     const capabilities = modelCapabilities[chatModel];
     const isReasoningModel = capabilities?.reasoning === true;
     const supportsTools = capabilities?.tools === true;
 
     const modelMessages = await convertToModelMessages(uiMessages);
+
+    const ephemeralToolsOnly = isEphemeralChatMode;
 
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
@@ -199,40 +118,43 @@ export async function POST(request: Request) {
           experimental_activeTools:
             isReasoningModel && !supportsTools
               ? []
-              : [
-                  "getWeather",
-                  "createDocument",
-                  "editDocument",
-                  "updateDocument",
-                  "requestSuggestions",
-                ],
-          providerOptions: {
-            ...(modelConfig?.gatewayOrder && {
-              gateway: { order: modelConfig.gatewayOrder },
-            }),
-            ...(modelConfig?.reasoningEffort && {
-              openai: { reasoningEffort: modelConfig.reasoningEffort },
-            }),
-          },
-          tools: {
-            getWeather,
-            createDocument: createDocument({
-              session,
-              dataStream,
-              modelId: chatModel,
-            }),
-            editDocument: editDocument({ dataStream, session }),
-            updateDocument: updateDocument({
-              session,
-              dataStream,
-              modelId: chatModel,
-            }),
-            requestSuggestions: requestSuggestions({
-              session,
-              dataStream,
-              modelId: chatModel,
-            }),
-          },
+              : ephemeralToolsOnly
+                ? ["getWeather", "createDocument"]
+                : [
+                    "getWeather",
+                    "createDocument",
+                    "editDocument",
+                    "updateDocument",
+                    "requestSuggestions",
+                  ],
+          tools: ephemeralToolsOnly
+            ? {
+                getWeather,
+                createDocument: createDocument({
+                  session,
+                  dataStream,
+                  modelId: chatModel,
+                }),
+              }
+            : {
+                getWeather,
+                createDocument: createDocument({
+                  session,
+                  dataStream,
+                  modelId: chatModel,
+                }),
+                editDocument: editDocument({ dataStream, session }),
+                updateDocument: updateDocument({
+                  session,
+                  dataStream,
+                  modelId: chatModel,
+                }),
+                requestSuggestions: requestSuggestions({
+                  session,
+                  dataStream,
+                  modelId: chatModel,
+                }),
+              },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",
@@ -246,95 +168,18 @@ export async function POST(request: Request) {
         if (titlePromise) {
           const title = await titlePromise;
           dataStream.write({ type: "data-chat-title", data: title });
-          updateChatTitleById({ chatId: id, title });
         }
       },
       generateId: generateUUID,
-      onFinish: async ({ messages: finishedMessages }) => {
-        if (isToolApprovalFlow) {
-          for (const finishedMsg of finishedMessages) {
-            const existingMsg = uiMessages.find((m) => m.id === finishedMsg.id);
-            if (existingMsg) {
-              await updateMessage({
-                id: finishedMsg.id,
-                parts: finishedMsg.parts,
-              });
-            } else {
-              await saveMessages({
-                messages: [
-                  {
-                    id: finishedMsg.id,
-                    role: finishedMsg.role,
-                    parts: finishedMsg.parts,
-                    createdAt: new Date(),
-                    attachments: [],
-                    chatId: id,
-                  },
-                ],
-              });
-            }
-          }
-        } else if (finishedMessages.length > 0) {
-          await saveMessages({
-            messages: finishedMessages.map((currentMessage) => ({
-              id: currentMessage.id,
-              role: currentMessage.role,
-              parts: currentMessage.parts,
-              createdAt: new Date(),
-              attachments: [],
-              chatId: id,
-            })),
-          });
-        }
-      },
-      onError: (error) => {
-        if (
-          error instanceof Error &&
-          error.message?.includes(
-            "AI Gateway requires a valid credit card on file to service requests"
-          )
-        ) {
-          return "AI Gateway requires a valid credit card on file to service requests. Please visit https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card to add a card and unlock your free credits.";
-        }
-        return "Oops, an error occurred!";
-      },
+      onError: () => "Oops, an error occurred!",
     });
 
-    return createUIMessageStreamResponse({
-      stream,
-      async consumeSseStream({ stream: sseStream }) {
-        if (!process.env.REDIS_URL) {
-          return;
-        }
-        try {
-          const streamContext = getStreamContext();
-          if (streamContext) {
-            const streamId = generateId();
-            await createStreamId({ streamId, chatId: id });
-            await streamContext.createNewResumableStream(
-              streamId,
-              () => sseStream
-            );
-          }
-        } catch (_) {
-          /* non-critical */
-        }
-      },
-    });
+    return createUIMessageStreamResponse({ stream });
   } catch (error) {
     const vercelId = request.headers.get("x-vercel-id");
 
     if (error instanceof ChatbotError) {
       return error.toResponse();
-    }
-
-    if (
-      error instanceof Error &&
-      error.message?.includes(
-        "AI Gateway requires a valid credit card on file to service requests"
-      )
-    ) {
-      return new ChatbotError("bad_request:activate_gateway").toResponse();
     }
 
     console.error("Unhandled error in chat API:", error, { vercelId });
@@ -350,19 +195,5 @@ export async function DELETE(request: Request) {
     return new ChatbotError("bad_request:api").toResponse();
   }
 
-  const session = await auth();
-
-  if (!session?.user) {
-    return new ChatbotError("unauthorized:chat").toResponse();
-  }
-
-  const chat = await getChatById({ id });
-
-  if (chat?.userId !== session.user.id) {
-    return new ChatbotError("forbidden:chat").toResponse();
-  }
-
-  const deletedChat = await deleteChatById({ id });
-
-  return Response.json(deletedChat, { status: 200 });
+  return Response.json({ id }, { status: 200 });
 }

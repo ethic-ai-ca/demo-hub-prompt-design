@@ -1,11 +1,11 @@
 import { tool, type UIMessageStreamWriter } from "ai";
-import type { Session } from "next-auth";
+import type { ToolSession } from "@/lib/tool-session";
 import { z } from "zod";
 import { getDocumentById, saveDocument } from "@/lib/db/queries";
 import type { ChatMessage } from "@/lib/types";
 
 type EditDocumentProps = {
-  session: Session;
+  session: ToolSession;
   dataStream: UIMessageStreamWriter<ChatMessage>;
 };
 

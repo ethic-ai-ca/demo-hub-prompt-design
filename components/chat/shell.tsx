@@ -1,32 +1,55 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useActiveChat } from "@/hooks/use-active-chat";
 import {
   initialArtifactData,
   useArtifact,
   useArtifactSelector,
 } from "@/hooks/use-artifact";
+import {
+  type PromptCompareColumnState,
+  runPromptCompareVariants,
+} from "@/lib/ai/prompt-compare-client";
+import type { CompareLab } from "@/lib/ai/prompts";
+import {
+  pathnameToCompareLab,
+  persistCompareLabForNavigation,
+} from "@/lib/chat-home-path";
+import {
+  CHAT_STARTER_SUGGESTIONS,
+  GC_HOME_PATH,
+  GC_STARTER_SUGGESTIONS,
+  PI_HOME_PATH,
+} from "@/lib/constants";
 import type { Attachment, ChatMessage } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, generateUUID } from "@/lib/utils";
 import { Artifact } from "./artifact";
 import { ChatHeader } from "./chat-header";
+import { useOptionalCompareLabFromRoute } from "./compare-lab-route-context";
 import { DataStreamHandler } from "./data-stream-handler";
 import { submitEditedMessage } from "./message-editor";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
+import { buildInitialCompareColumns } from "./prompt-compare-grid";
 
 export function ChatShell() {
+  const pathname = usePathname();
+  const labFromRoute = useOptionalCompareLabFromRoute();
+  const compareLab = labFromRoute ?? pathnameToCompareLab(pathname);
+
+  useEffect(() => {
+    if (pathname === PI_HOME_PATH) {
+      persistCompareLabForNavigation("pi");
+    } else if (pathname === GC_HOME_PATH) {
+      persistCompareLabForNavigation("gc");
+    }
+  }, [pathname]);
+
+  const starterSuggestions =
+    compareLab === "gc" ? GC_STARTER_SUGGESTIONS : CHAT_STARTER_SUGGESTIONS;
+
   const {
     chatId,
     messages,
@@ -44,25 +67,119 @@ export function ChatShell() {
     votes,
     currentModelId,
     setCurrentModelId,
-    showCreditCardAlert,
-    setShowCreditCardAlert,
   } = useActiveChat();
 
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(
     null
   );
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [promptCompareSession, setPromptCompareSession] = useState<null | {
+    id: string;
+    requestMessages: ChatMessage[];
+    modelId: string;
+    scenarioIndex: number;
+    compareLab: CompareLab;
+  }>(null);
+  const [promptCompareColumns, setPromptCompareColumns] = useState<
+    PromptCompareColumnState[]
+  >([]);
+  const [isPromptCompareStreaming, setIsPromptCompareStreaming] =
+    useState(false);
+  const compareAbortRef = useRef<AbortController | null>(null);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
   const { setArtifact } = useArtifact();
 
+  const clearPromptCompare = useCallback(() => {
+    compareAbortRef.current?.abort();
+    compareAbortRef.current = null;
+    setPromptCompareSession(null);
+    setPromptCompareColumns([]);
+    setIsPromptCompareStreaming(false);
+  }, []);
+
+  const startPromptCompare = useCallback(
+    (text: string, scenarioIndex: number) => {
+      persistCompareLabForNavigation(compareLab);
+      window.history.pushState(
+        {},
+        "",
+        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${chatId}`
+      );
+      const userMsg: ChatMessage = {
+        id: generateUUID(),
+        role: "user",
+        parts: [{ type: "text", text }],
+      };
+      setMessages([userMsg]);
+      setPromptCompareColumns(
+        buildInitialCompareColumns(scenarioIndex, compareLab)
+      );
+      setPromptCompareSession({
+        id: generateUUID(),
+        requestMessages: [userMsg],
+        modelId: currentModelId,
+        scenarioIndex,
+        compareLab,
+      });
+    },
+    [chatId, compareLab, currentModelId, setMessages]
+  );
+
+  useEffect(() => {
+    if (!promptCompareSession) {
+      return;
+    }
+    const ac = new AbortController();
+    compareAbortRef.current = ac;
+    setIsPromptCompareStreaming(true);
+    const {
+      requestMessages,
+      modelId,
+      scenarioIndex,
+      compareLab: sessionLab,
+    } = promptCompareSession;
+
+    const compareRun = runPromptCompareVariants({
+      chatId,
+      messages: requestMessages,
+      modelId,
+      scenarioIndex,
+      compareLab: sessionLab,
+      visibilityType,
+      signal: ac.signal,
+      setColumns: setPromptCompareColumns,
+    });
+    compareRun.finally(() => {
+      if (compareAbortRef.current === ac) {
+        compareAbortRef.current = null;
+      }
+      setIsPromptCompareStreaming(false);
+    });
+
+    return () => {
+      ac.abort();
+    };
+  }, [promptCompareSession, chatId, visibilityType]);
+
+  const combinedStop = useCallback(async () => {
+    compareAbortRef.current?.abort();
+    compareAbortRef.current = null;
+    setIsPromptCompareStreaming(false);
+    await stop();
+  }, [stop]);
+
   const stopRef = useRef(stop);
-  stopRef.current = stop;
+  stopRef.current = combinedStop;
+
+  const clearPromptCompareRef = useRef(clearPromptCompare);
+  clearPromptCompareRef.current = clearPromptCompare;
 
   const prevChatIdRef = useRef(chatId);
   useEffect(() => {
     if (prevChatIdRef.current !== chatId) {
       prevChatIdRef.current = chatId;
       stopRef.current();
+      clearPromptCompareRef.current();
       setArtifact(initialArtifactData);
       setEditingMessage(null);
       setAttachments([]);
@@ -84,10 +201,11 @@ export function ChatShell() {
             selectedVisibilityType={visibilityType}
           />
 
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:rounded-tl-[12px] md:border-t md:border-l md:border-border/40">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:rounded-tl-[12px]">
             <Messages
               addToolApprovalResponse={addToolApprovalResponse}
               chatId={chatId}
+              compareLab={compareLab}
               isArtifactVisible={isArtifactVisible}
               isLoading={isLoading}
               isReadonly={isReadonly}
@@ -100,6 +218,11 @@ export function ChatShell() {
                 setInput(text ?? "");
                 setEditingMessage(msg);
               }}
+              promptCompareColumns={
+                promptCompareColumns.length > 0
+                  ? promptCompareColumns
+                  : undefined
+              }
               regenerate={regenerate}
               selectedModelId={currentModelId}
               setMessages={setMessages}
@@ -115,13 +238,14 @@ export function ChatShell() {
                   editingMessage={editingMessage}
                   input={input}
                   isLoading={isLoading}
+                  isPromptCompareStreaming={isPromptCompareStreaming}
                   messages={messages}
                   onCancelEdit={() => {
                     setEditingMessage(null);
                     setInput("");
                   }}
-                  onModelChange={setCurrentModelId}
-                  selectedModelId={currentModelId}
+                  onClearPromptCompare={clearPromptCompare}
+                  onSelectSuggestedForPromptCompare={startPromptCompare}
                   selectedVisibilityType={visibilityType}
                   sendMessage={
                     editingMessage
@@ -141,8 +265,9 @@ export function ChatShell() {
                   setAttachments={setAttachments}
                   setInput={setInput}
                   setMessages={setMessages}
+                  starterSuggestions={starterSuggestions}
                   status={status}
-                  stop={stop}
+                  stop={combinedStop}
                 />
               )}
             </div>
@@ -164,42 +289,12 @@ export function ChatShell() {
           setInput={setInput}
           setMessages={setMessages}
           status={status}
-          stop={stop}
+          stop={combinedStop}
           votes={votes}
         />
       </div>
 
       <DataStreamHandler />
-
-      <AlertDialog
-        onOpenChange={setShowCreditCardAlert}
-        open={showCreditCardAlert}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Activate AI Gateway</AlertDialogTitle>
-            <AlertDialogDescription>
-              This application requires{" "}
-              {process.env.NODE_ENV === "production" ? "the owner" : "you"} to
-              activate Vercel AI Gateway.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                window.open(
-                  "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card",
-                  "_blank"
-                );
-                window.location.href = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/`;
-              }}
-            >
-              Activate
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

@@ -3,7 +3,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { motion } from "framer-motion";
 import { memo } from "react";
-import { suggestions } from "@/lib/constants";
+import type { ChatStarterRow } from "@/lib/constants";
 import type { ChatMessage } from "@/lib/types";
 import { Suggestion } from "../ai-elements/suggestion";
 import type { VisibilityType } from "./visibility-selector";
@@ -12,11 +12,19 @@ type SuggestedActionsProps = {
   chatId: string;
   sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
   selectedVisibilityType: VisibilityType;
+  starters: readonly ChatStarterRow[];
+  onSelectSuggestedForPromptCompare?: (
+    text: string,
+    scenarioIndex: number
+  ) => void;
 };
 
-function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
-  const suggestedActions = suggestions;
-
+function PureSuggestedActions({
+  chatId,
+  sendMessage,
+  starters,
+  onSelectSuggestedForPromptCompare,
+}: SuggestedActionsProps) {
   return (
     <div
       className="flex w-full gap-2.5 overflow-x-auto pb-1 sm:grid sm:grid-cols-2 sm:overflow-visible"
@@ -27,13 +35,13 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
         msOverflowStyle: "none",
       }}
     >
-      {suggestedActions.map((suggestedAction, index) => (
+      {starters.map((starter, index) => (
         <motion.div
           animate={{ opacity: 1, y: 0 }}
           className="min-w-[200px] shrink-0 sm:min-w-0 sm:shrink"
           exit={{ opacity: 0, y: 16 }}
           initial={{ opacity: 0, y: 16 }}
-          key={suggestedAction}
+          key={starter.promptCompareScenarioIndex}
           transition={{
             delay: 0.06 * index,
             duration: 0.4,
@@ -41,21 +49,31 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
           }}
         >
           <Suggestion
-            className="h-auto w-full whitespace-nowrap rounded-xl border border-border/50 bg-card/30 px-4 py-3 text-left text-[12px] leading-relaxed text-muted-foreground transition-all duration-200 sm:whitespace-normal sm:p-4 sm:text-[13px] hover:-translate-y-0.5 hover:bg-card/60 hover:text-foreground hover:shadow-[var(--shadow-card)]"
+            className="h-auto w-full flex-col items-start justify-start gap-1.5 whitespace-normal rounded-xl border border-border/50 bg-card/30 px-4 py-3 text-left text-[12px] leading-relaxed transition-all duration-200 sm:p-4 sm:text-[13px] hover:-translate-y-0.5 hover:bg-card/60 hover:shadow-[var(--shadow-card)]"
             onClick={(suggestion) => {
               window.history.pushState(
                 {},
                 "",
                 `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${chatId}`
               );
+              if (onSelectSuggestedForPromptCompare) {
+                onSelectSuggestedForPromptCompare(
+                  suggestion,
+                  starter.promptCompareScenarioIndex
+                );
+                return;
+              }
               sendMessage({
                 role: "user",
                 parts: [{ type: "text", text: suggestion }],
               });
             }}
-            suggestion={suggestedAction}
+            suggestion={starter.text}
           >
-            {suggestedAction}
+            <span className="font-bold text-foreground">{starter.title}</span>
+            <span className="font-normal text-muted-foreground transition-colors group-hover/button:text-foreground">
+              {starter.text}
+            </span>
           </Suggestion>
         </motion.div>
       ))}
@@ -70,6 +88,15 @@ export const SuggestedActions = memo(
       return false;
     }
     if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType) {
+      return false;
+    }
+    if (
+      prevProps.onSelectSuggestedForPromptCompare !==
+      nextProps.onSelectSuggestedForPromptCompare
+    ) {
+      return false;
+    }
+    if (prevProps.starters !== nextProps.starters) {
       return false;
     }
 

@@ -498,3 +498,14 @@ textarea:focus-visible {
 [data-testid="artifact"] {
   isolation: isolate;
 }
+
+/* Streamdown’s code block body uses overflow-hidden, which clips long lines instead of scrolling. */
+[data-streamdown="code-block"] {
+  max-width: 100%;
+  min-width: 0;
+}
+
+[data-streamdown="code-block-body"] {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}

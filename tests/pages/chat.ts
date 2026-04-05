@@ -10,11 +10,11 @@ export class ChatPage {
   }
 
   async goto() {
-    await this.page.goto("/");
+    await this.page.goto("/pi");
   }
 
   async createNewChat() {
-    await this.page.goto("/");
+    await this.page.goto("/pi");
     await this.page.waitForSelector("[data-testid='multimodal-input']");
   }
 

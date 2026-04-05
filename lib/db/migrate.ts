@@ -23,6 +23,18 @@ const runMigrate = async () => {
   const end = Date.now();
 
   console.log("Migrations completed in", end - start, "ms");
+
+  try {
+    await connection.unsafe(`
+      INSERT INTO "User" ("id", "email", "isAnonymous", "createdAt", "updatedAt")
+      VALUES ('00000000-0000-0000-0000-000000000001', 'anonymous@local', true, now(), now())
+      ON CONFLICT ("id") DO NOTHING
+    `);
+    console.log("Anonymous user seed applied (for no-auth artifact storage).");
+  } catch (seedError) {
+    console.warn("Anonymous user seed skipped:", seedError);
+  }
+
   process.exit(0);
 };
 

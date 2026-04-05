@@ -1,4 +1,5 @@
-import { customProvider, gateway } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { customProvider } from "ai";
 import { isTestEnvironment } from "../constants";
 import { titleModel } from "./models";
 
@@ -14,17 +15,21 @@ export const myProvider = isTestEnvironment
     })()
   : null;
 
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
 export function getLanguageModel(modelId: string) {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel(modelId);
   }
 
-  return gateway.languageModel(modelId);
+  return openai.chat(modelId);
 }
 
 export function getTitleModel() {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("title-model");
   }
-  return gateway.languageModel(titleModel.id);
+  return openai.chat(titleModel.id);
 }

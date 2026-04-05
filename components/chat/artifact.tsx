@@ -18,6 +18,7 @@ import { imageArtifact } from "@/artifacts/image/client";
 import { sheetArtifact } from "@/artifacts/sheet/client";
 import { textArtifact } from "@/artifacts/text/client";
 import { useArtifact } from "@/hooks/use-artifact";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { Document, Vote } from "@/lib/db/schema";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { fetcher } from "@/lib/utils";
@@ -264,8 +265,8 @@ function PureArtifact({
       ? currentVersionIndex === documents.length - 1
       : true;
 
-  const { width: windowWidth, height: windowHeight } = useWindowSize();
-  const isMobile = windowWidth ? windowWidth < 768 : false;
+  const isMobile = useIsMobile();
+  const { height: windowHeight } = useWindowSize();
 
   const artifactDefinition = artifactDefinitions.find(
     (definition) => definition.kind === artifact.kind

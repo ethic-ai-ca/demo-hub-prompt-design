@@ -129,3 +129,337 @@ Examples:
 - "debug my python code" → Python Debugging
 
 Never output hashtags, prefixes like "Title:", or quotes.`;
+
+/** One row of starter suggestions maps to a scenario index here (0..COUNT-1). */
+export const PROMPT_COMPARE_SCENARIO_COUNT = 6 as const;
+
+/** Prompt-iteration lab (`/pi`). */
+export type CompareLab = "pi" | "gc";
+
+const promptCompareScenarioVariants = [
+  [
+    {
+      id: "ultra-brief",
+      label: "Ultra-brief",
+      system: "Classify the customer message and respond.",
+    },
+    {
+      id: "balanced",
+      label: "Balanced default",
+      system: `Classify the customer issue into one category: Billing, Shipping, Product, or Other.
+
+Then provide a short response explaining what should happen next.`,
+    },
+    {
+      id: "cautious-formal",
+      label: "Cautious & formal",
+      system: `# ROLE
+You are a customer support classification system.
+
+# OBJECTIVE
+Classify the message and determine the correct action.
+
+# INPUT
+{{customer_message}}
+
+# OUTPUT FORMAT
+{
+  "category": "Billing | Shipping | Product | Technical | Other",
+  "priority": "Low | Medium | High",
+  "action": "auto_reply | escalate | refund_check | investigate",
+  "confidence": number
+}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+# RULES
+- If Duplicate charges → category = Billing
+- If Money-related complaints → priority = High
+- Do not include explanations
+
+# FAILURE HANDLING
+- If uncertain → category = "Other"
+- Set confidence < 0.6`,
+    },
+  ],
+  [
+    {
+      id: "ultra-brief",
+      label: "Ultra-brief",
+      system: "What tasks are in this message?",
+    },
+    {
+      id: "balanced",
+      label: "Balanced default",
+      system:
+        "Extract all tasks from the message and list them as bullet points.",
+    },
+    {
+      id: "cautious-formal",
+      label: "Cautious & formal",
+      system: `# ROLE
+You are a task extraction engine.
+
+# OBJECTIVE
+Extract actionable tasks from the message.
+
+# INPUT
+{{message}}
+
+# OUTPUT FORMAT
+{
+  "tasks": [
+    {
+      "task": string,
+      "assignee": string | null,
+      "due_date": string | null,
+      "priority": "Low | Medium | High"
+    }
+  ]
+}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+
+# RULES
+- Split tasks clearly
+- Keep tasks concise
+- Only assign if explicitly mentioned
+
+# FAILURE HANDLING
+- If no tasks → return empty array
+- Missing data → null`,
+    },
+  ],
+  [
+    {
+      id: "ultra-brief",
+      label: "Ultra-brief",
+      system: "Summarize this text.",
+    },
+    {
+      id: "balanced",
+      label: "Balanced default",
+      system:
+        "Summarize this report into bullet points highlighting key findings.",
+    },
+    {
+      id: "cautious-formal",
+      label: "Cautious & formal",
+      system: `# ROLE
+You are an operations analyst.
+
+# OBJECTIVE
+Summarize the report for decision-making.
+
+# INPUT
+{{text}}
+
+# OUTPUT FORMAT
+{
+  "key_points": [string],
+  "risks": [string],
+  "recommended_actions": [string]
+}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+# RULES
+- Max 5 key points
+- Max 3 risks
+- Max 3 actions
+- Focus on business impact
+
+# FAILURE HANDLING
+- If insufficient info → return empty arrays
+- Do not invent data`,
+    },
+  ],
+  [
+    {
+      id: "ultra-brief",
+      label: "Ultra-brief",
+      system: "Evaluate this candidate.",
+    },
+    {
+      id: "balanced",
+      label: "Balanced default",
+      system:
+        "Evaluate whether this candidate is a good fit for the role and explain why.",
+    },
+    {
+      id: "cautious-formal",
+      label: "Cautious & formal",
+      system: `# ROLE
+You are a hiring evaluation assistant.
+
+# OBJECTIVE
+Assess candidate fit objectively.
+
+# INPUT
+{{candidate_info}}
+
+# OUTPUT FORMAT
+{
+  "fit_score_percentage": number,
+  "strengths": [string],
+  "gaps": [string],
+  "recommendation": "Reject | Consider | Strong"
+}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+
+# RULES
+- Prioritize automation and AI experience
+- Be objective and concise
+- No extra commentary
+- Show the score as a percentage
+
+# FAILURE HANDLING
+- If insufficient data → reduce confidence in score
+- Do not assume missing skills`,
+    },
+  ],
+  [
+    {
+      id: "ultra-brief",
+      label: "Ultra-brief",
+      system: "Analyze this message.",
+    },
+    {
+      id: "balanced",
+      label: "Balanced default",
+      system: "Identify any risks mentioned in the message and explain them.",
+    },
+    {
+      id: "cautious-formal",
+      label: "Cautious & formal",
+      system: `# ROLE
+You are a risk detection system.
+
+# OBJECTIVE
+Identify risks and classify severity.
+
+# INPUT
+{{message}}
+
+# OUTPUT FORMAT
+{
+  "risk_detected": boolean,
+  "risk_type": "deadline | dependency | resource | compliance | other",
+  "severity": "Low | Medium | High",
+  "recommended_action": string
+}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+# RULES
+- Deadline risk → severity = High
+- Resource shortage → risk_type = resource
+- Be conservative
+
+# FAILURE HANDLING
+- If unclear → risk_detected = false
+- Do not assume risk without evidence`,
+    },
+  ],
+  [
+    {
+      id: "ultra-brief",
+      label: "Ultra-brief",
+      system: "Extract information from this text.",
+    },
+    {
+      id: "balanced",
+      label: "Balanced default",
+      system: "Extract order ID, issue, and date.",
+    },
+    {
+      id: "cautious-formal",
+      label: "Cautious & formal",
+      system: `# ROLE
+You are a structured data extraction engine.
+
+# OBJECTIVE
+Extract normalized fields from the input.
+
+# INPUT
+{{text}}
+
+# OUTPUT FORMAT
+{
+  "order_id": string | null,
+  "issue_type": "delay | damage | billing | other",
+  "date": string | null,
+  "customer_request": string | null
+}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+
+# RULES
+- Normalize issue types
+- Do not infer missing values
+
+# FAILURE HANDLING
+- Missing → null
+- Do not fabricate data`,
+    },
+  ],
+] as const;
+
+/** Guardrails & constraints lab (`/gc`). Deep copy of PI scenarios until tailored GC prompts are authored. */
+export const promptCompareGcScenarioVariants: typeof promptCompareScenarioVariants =
+  JSON.parse(
+    JSON.stringify(promptCompareScenarioVariants)
+  ) as typeof promptCompareScenarioVariants;
+
+export const GC_PROMPT_COMPARE_SCENARIO_COUNT = PROMPT_COMPARE_SCENARIO_COUNT;
+
+export type PromptCompareVariant =
+  (typeof promptCompareScenarioVariants)[number][number];
+
+export function getPromptCompareVariantsForScenario(
+  scenarioIndex: number,
+  compareLab: CompareLab = "pi"
+): readonly PromptCompareVariant[] {
+  const table =
+    compareLab === "gc"
+      ? promptCompareGcScenarioVariants
+      : promptCompareScenarioVariants;
+  const row = table[scenarioIndex];
+  if (!row) {
+    throw new RangeError("Invalid prompt compare scenario index");
+  }
+  return row;
+}
+
+export function compareSystemPrompt({
+  variantIndex,
+  scenarioIndex,
+  requestHints,
+  compareLab = "pi",
+}: {
+  variantIndex: number;
+  scenarioIndex: number;
+  requestHints: RequestHints;
+  compareLab?: CompareLab;
+}): string {
+  const variants = getPromptCompareVariantsForScenario(
+    scenarioIndex,
+    compareLab
+  );
+  const variant = variants[variantIndex];
+  if (!variant) {
+    throw new RangeError("Invalid prompt compare variant index");
+  }
+  const requestPrompt = getRequestPromptFromHints(requestHints);
+  return `${variant.system}\n\n${requestPrompt}`;
+}

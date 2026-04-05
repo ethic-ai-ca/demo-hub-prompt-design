@@ -2,12 +2,15 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import { ArrowDownIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useMessages } from "@/hooks/use-messages";
+import type { PromptCompareColumnState } from "@/lib/ai/prompt-compare-client";
+import type { CompareLab } from "@/lib/ai/prompts";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
+import { PromptCompareGrid } from "./prompt-compare-grid";
 
 type MessagesProps = {
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
@@ -22,6 +25,8 @@ type MessagesProps = {
   isLoading?: boolean;
   selectedModelId: string;
   onEditMessage?: (message: ChatMessage) => void;
+  promptCompareColumns?: PromptCompareColumnState[];
+  compareLab: CompareLab;
 };
 
 function PureMessages({
@@ -37,6 +42,8 @@ function PureMessages({
   isLoading,
   selectedModelId: _selectedModelId,
   onEditMessage,
+  promptCompareColumns,
+  compareLab,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -63,7 +70,7 @@ function PureMessages({
     <div className="relative flex-1 bg-background">
       {messages.length === 0 && !isLoading && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-          <Greeting />
+          <Greeting compareLab={compareLab} />
         </div>
       )}
       <div
@@ -98,6 +105,10 @@ function PureMessages({
               }
             />
           ))}
+
+          {promptCompareColumns && promptCompareColumns.length > 0 && (
+            <PromptCompareGrid columns={promptCompareColumns} />
+          )}
 
           {status === "submitted" && messages.at(-1)?.role !== "assistant" && (
             <ThinkingMessage />

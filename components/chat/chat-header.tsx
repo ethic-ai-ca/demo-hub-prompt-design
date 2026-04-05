@@ -1,11 +1,13 @@
 "use client";
 
-import { PanelLeftIcon } from "lucide-react";
-import Link from "next/link";
+import { PenSquareIcon } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
-import { VercelIcon } from "./icons";
+import { getChatHomePathForPathname } from "@/lib/chat-home-path";
+import { isEphemeralChatMode } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import { VisibilitySelector, type VisibilityType } from "./visibility-selector";
 
 function PureChatHeader({
@@ -17,52 +19,39 @@ function PureChatHeader({
   selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
 }) {
-  const { state, toggleSidebar, isMobile } = useSidebar();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { state, isMobile, setOpenMobile } = useSidebar();
 
-  if (state === "collapsed" && !isMobile) {
-    return null;
-  }
+  const hideOnCollapsedDesktop = state === "collapsed" && !isMobile;
 
   return (
-    <header className="sticky top-0 flex h-14 items-center gap-2 bg-sidebar px-3">
+    <header
+      className={cn(
+        "sticky top-0 flex h-14 items-center gap-2 bg-sidebar px-3",
+        hideOnCollapsedDesktop && "hidden"
+      )}
+    >
       <Button
-        className="md:hidden"
-        onClick={toggleSidebar}
+        aria-label="New chat"
+        className="size-8"
+        onClick={() => {
+          setOpenMobile(false);
+          router.push(getChatHomePathForPathname(pathname));
+        }}
         size="icon-sm"
+        type="button"
         variant="ghost"
       >
-        <PanelLeftIcon className="size-4" />
+        <PenSquareIcon className="size-4" />
       </Button>
 
-      <Link
-        className="flex size-8 items-center justify-center rounded-lg md:hidden"
-        href="https://vercel.com/templates/next.js/chatbot"
-        rel="noopener noreferrer"
-        target="_blank"
-      >
-        <VercelIcon size={14} />
-      </Link>
-
-      {!isReadonly && (
+      {!isReadonly && !isEphemeralChatMode && (
         <VisibilitySelector
           chatId={chatId}
           selectedVisibilityType={selectedVisibilityType}
         />
       )}
-
-      <Button
-        asChild
-        className="hidden rounded-lg bg-foreground px-4 text-background hover:bg-foreground/90 md:ml-auto md:flex"
-      >
-        <Link
-          href="https://vercel.com/templates/next.js/chatbot"
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          <VercelIcon size={16} />
-          Deploy with Vercel
-        </Link>
-      </Button>
     </header>
   );
 }
