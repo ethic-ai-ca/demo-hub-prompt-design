@@ -1,14 +1,21 @@
 import { motion } from "framer-motion";
 import type { CompareLab } from "@/lib/ai/prompts";
 
+type GreetingVariant = CompareLab | "rbs";
+
 const GREETING_COPY: Record<
-  CompareLab,
+  GreetingVariant,
   { title: string; description: string }
 > = {
   pi: {
     title: "Prompt Iteration Lab",
     description:
       "Compare how different system prompts change behavior, accuracy, and output structure.",
+  },
+  rbs: {
+    title: "Role-Based Behavior Design",
+    description:
+      "Shaping AI behavior based on role, context, and intended function.",
   },
   gc: {
     title: "Guardrails & Constraints",
@@ -17,7 +24,7 @@ const GREETING_COPY: Record<
   },
 };
 
-export function Greeting({ compareLab }: { compareLab: CompareLab }) {
+export function Greeting({ compareLab }: { compareLab: GreetingVariant }) {
   const { title, description } = GREETING_COPY[compareLab];
   return (
     <div className="flex flex-col items-center px-4" key="overview">

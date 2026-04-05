@@ -22,6 +22,8 @@ import {
   GC_HOME_PATH,
   GC_STARTER_SUGGESTIONS,
   PI_HOME_PATH,
+  RBS_STARTER_SUGGESTIONS,
+  RBS_HOME_PATH,
 } from "@/lib/constants";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn, generateUUID } from "@/lib/utils";
@@ -39,20 +41,33 @@ export function ChatShell() {
   const selectedSegment = useSelectedLayoutSegment();
   const labFromRoute = useOptionalCompareLabFromRoute();
   const routeCompareLab =
-    selectedSegment === "gc" ? "gc" : selectedSegment === "pi" ? "pi" : null;
+    selectedSegment === "gc"
+      ? "gc"
+      : selectedSegment === "rbs"
+        ? "rbs"
+        : selectedSegment === "pi"
+          ? "pi"
+        : null;
   const compareLab =
     routeCompareLab ?? labFromRoute ?? pathnameToCompareLab(pathname);
+  const greetingVariant = selectedSegment === "rbs" ? "rbs" : compareLab;
 
   useEffect(() => {
     if (pathname === PI_HOME_PATH) {
-      persistCompareLabForNavigation("pi");
+      persistCompareLabForNavigation("pi", PI_HOME_PATH);
+    } else if (pathname === RBS_HOME_PATH) {
+      persistCompareLabForNavigation("rbs", RBS_HOME_PATH);
     } else if (pathname === GC_HOME_PATH) {
-      persistCompareLabForNavigation("gc");
+      persistCompareLabForNavigation("gc", GC_HOME_PATH);
     }
   }, [pathname]);
 
   const starterSuggestions =
-    compareLab === "gc" ? GC_STARTER_SUGGESTIONS : CHAT_STARTER_SUGGESTIONS;
+    compareLab === "gc"
+      ? GC_STARTER_SUGGESTIONS
+      : compareLab === "rbs"
+        ? RBS_STARTER_SUGGESTIONS
+        : CHAT_STARTER_SUGGESTIONS;
 
   const {
     chatId,
@@ -89,7 +104,10 @@ export function ChatShell() {
   const [isPromptCompareStreaming, setIsPromptCompareStreaming] =
     useState(false);
   const shouldHidePromptInput =
-    routeCompareLab === "pi" || promptCompareSession?.compareLab === "pi";
+    routeCompareLab === "pi" ||
+    routeCompareLab === "rbs" ||
+    promptCompareSession?.compareLab === "pi" ||
+    promptCompareSession?.compareLab === "rbs";
   const compareAbortRef = useRef<AbortController | null>(null);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
   const { setArtifact } = useArtifact();
@@ -104,7 +122,14 @@ export function ChatShell() {
 
   const startPromptCompare = useCallback(
     (text: string, scenarioIndex: number) => {
-      persistCompareLabForNavigation(compareLab);
+      persistCompareLabForNavigation(
+        compareLab,
+        pathname === RBS_HOME_PATH
+          ? RBS_HOME_PATH
+          : compareLab === "gc"
+            ? GC_HOME_PATH
+            : PI_HOME_PATH
+      );
       window.history.pushState(
         {},
         "",
@@ -127,7 +152,7 @@ export function ChatShell() {
         compareLab,
       });
     },
-    [chatId, compareLab, currentModelId, setMessages]
+    [chatId, compareLab, currentModelId, pathname, setMessages]
   );
 
   useEffect(() => {
@@ -211,6 +236,7 @@ export function ChatShell() {
               addToolApprovalResponse={addToolApprovalResponse}
               chatId={chatId}
               compareLab={compareLab}
+              greetingVariant={greetingVariant}
               isArtifactVisible={isArtifactVisible}
               isLoading={isLoading}
               isReadonly={isReadonly}

@@ -18,7 +18,7 @@ export const promptCompareRequestSchema = z
     selectedVisibilityType: z.enum(["public", "private"]),
     variantIndex: z.number().int().min(0).max(2),
     scenarioIndex: z.number().int().min(0),
-    compareLab: z.enum(["pi", "gc"]).default("pi"),
+    compareLab: z.enum(["pi", "rbs", "gc"]).default("pi"),
   })
   .superRefine((data, ctx) => {
     const max =

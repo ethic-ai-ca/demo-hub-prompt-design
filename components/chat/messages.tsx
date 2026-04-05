@@ -12,6 +12,8 @@ import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
 import { PromptCompareGrid } from "./prompt-compare-grid";
 
+type GreetingVariant = CompareLab | "rbs";
+
 type MessagesProps = {
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
   chatId: string;
@@ -27,6 +29,7 @@ type MessagesProps = {
   onEditMessage?: (message: ChatMessage) => void;
   promptCompareColumns?: PromptCompareColumnState[];
   compareLab: CompareLab;
+  greetingVariant?: GreetingVariant;
 };
 
 function PureMessages({
@@ -44,6 +47,7 @@ function PureMessages({
   onEditMessage,
   promptCompareColumns,
   compareLab,
+  greetingVariant,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -70,7 +74,7 @@ function PureMessages({
     <div className="relative flex-1 bg-background">
       {messages.length === 0 && !isLoading && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-          <Greeting compareLab={compareLab} />
+          <Greeting compareLab={greetingVariant ?? compareLab} />
         </div>
       )}
       <div

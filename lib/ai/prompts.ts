@@ -133,8 +133,8 @@ Never output hashtags, prefixes like "Title:", or quotes.`;
 /** One row of starter suggestions maps to a scenario index here (0..COUNT-1). */
 export const PROMPT_COMPARE_SCENARIO_COUNT = 6 as const;
 
-/** Prompt-iteration lab (`/pi`). */
-export type CompareLab = "pi" | "gc";
+/** Prompt-iteration labs (`/pi`, `/rbs`). */
+export type CompareLab = "pi" | "rbs" | "gc";
 
 const promptCompareScenarioVariants = [
   [
@@ -415,6 +415,227 @@ Extract normalized fields from the input.
   ],
 ] as const;
 
+const promptCompareRbsScenarioVariants = [
+  [
+    {
+      id: "ultra-brief",
+      label: "Basic",
+      system: "Analyze this statement.",
+    },
+    {
+      id: "balanced",
+      label: "Better",
+      system: "Analyze this from a business perspective.",
+    },
+    {
+      id: "cautious-formal",
+      label: "Production",
+      system: `# ROLE
+You are a business analyst.
+
+# OBJECTIVE
+Provide structured insights.
+
+# INPUT
+{{text}}
+
+# OUTPUT FORMAT
+{
+  "root_causes": [string],
+  "impact": string,
+  "recommendations": [string]
+}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+# RULES
+- Focus on data-driven reasoning
+- Avoid speculation`,
+    },
+  ],
+  [
+    {
+      id: "ultra-brief",
+      label: "Basic",
+      system: "Respond to the complaint.",
+    },
+    {
+      id: "balanced",
+      label: "Better",
+      system: `# ROLE
+Customer Support Agent
+
+# OBJECTIVE
+Resolve issue with empathy
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+# OUTPUT
+{
+  "response": string,
+  "action": "refund | replace | escalate"
+}`,
+    },
+    {
+      id: "cautious-formal",
+      label: "Production",
+      system: `# ROLE
+Quality Analyst
+
+# OBJECTIVE
+Identify product issue
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+# OUTPUT
+{
+  "defect_type": string,
+  "severity": string
+}`,
+    },
+  ],
+  [
+    {
+      id: "ultra-brief",
+      label: "Basic",
+      system:
+        "Analyze this result and explain why profit may have dropped even though revenue increased.",
+    },
+    {
+      id: "balanced",
+      label: "Better",
+      system: `# ROLE
+You are a business analyst.
+
+# OBJECTIVE
+Analyze the relationship between revenue growth and profit decline.
+
+# INPUT
+{{text}}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+# OUTPUT FORMAT
+{
+  "observations": [string],
+  "possible_causes": [string],
+  "recommended_next_steps": [string]
+}
+
+# RULES
+- Focus on operational and financial drivers
+- Distinguish observation from inference
+- Be concise and structured
+
+# FAILURE HANDLING
+- If data is insufficient, state assumptions clearly
+- Do not invent metrics`,
+    },
+    {
+      id: "cautious-formal",
+      label: "Production",
+      system: `# ROLE
+You are a finance analyst.
+
+# OBJECTIVE
+Interpret the result from a cost and margin perspective.
+
+# INPUT
+{{text}}
+
+# OUTPUT FORMAT
+{
+  "margin_risk": string,
+  "cost_drivers": [string],
+  "financial_actions": [string]
+}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+
+# RULES
+- Focus on cost structure, margin pressure, and profitability
+- Avoid broad operational speculation unless financially relevant
+
+# FAILURE HANDLING
+- If exact financial drivers are unknown, provide plausible categories only`,
+    },
+  ],
+  [
+    {
+      id: "ultra-brief",
+      label: "Basic",
+      system: "Explain the impact of this outage and what should happen next.",
+    },
+    {
+      id: "balanced",
+      label: "Better",
+      system: `# ROLE
+You are a reliability engineer.
+
+# OBJECTIVE
+Assess the incident from a technical operations perspective.
+
+# INPUT
+{{text}}
+
+# OUTPUT FORMAT
+{
+  "incident_type": string,
+  "possible_causes": [string],
+  "technical_next_steps": [string]
+}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+
+# RULES
+- Focus on outage classification, likely technical causes, and recovery actions
+- Do not speculate beyond the provided evidence
+
+# FAILURE HANDLING
+- If root cause is unknown, label causes as hypotheses`,
+    },
+    {
+      id: "cautious-formal",
+      label: "Production",
+      system: `# ROLE
+You are an operations manager.
+
+# OBJECTIVE
+Assess business impact and operational response.
+
+# INPUT
+{{text}}
+
+# OUTPUT FORMAT
+{
+  "business_impact": string,
+  "affected_process": string,
+  "response_actions": [string]
+}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+
+# RULES
+- Focus on customer and revenue impact
+- Emphasize continuity and escalation steps
+
+# FAILURE HANDLING
+- If impact is not quantifiable, describe likely affected areas only`,
+    },
+  ],
+  ...promptCompareScenarioVariants.slice(4),
+] as const;
+
 const promptCompareGcScenario0Variants = [
   {
     id: "ultra-brief",
@@ -609,7 +830,9 @@ export function getPromptCompareVariantsForScenario(
   const table =
     compareLab === "gc"
       ? promptCompareGcScenarioVariants
-      : promptCompareScenarioVariants;
+      : compareLab === "rbs"
+        ? promptCompareRbsScenarioVariants
+        : promptCompareScenarioVariants;
   const row = table[scenarioIndex];
   if (!row) {
     throw new RangeError("Invalid prompt compare scenario index");

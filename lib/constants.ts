@@ -1,6 +1,9 @@
 /** Home route for the prompt-iteration chat UI (root `/` redirects here). */
 export const PI_HOME_PATH = "/pi";
 
+/** Alternate PI-based landing page; currently reuses the `/pi` compare flow. */
+export const RBS_HOME_PATH = "/rbs";
+
 /** Guardrails & constraints lab — same compare UX as `/pi`, separate starters and system scenarios. */
 export const GC_HOME_PATH = "/gc";
 
@@ -59,6 +62,29 @@ export const CHAT_STARTER_SUGGESTIONS: readonly ChatStarterRow[] = [
     promptCompareScenarioIndex: 5,
     title: "DATA EXTRACTION",
     text: "Order #12345 was delivered late on March 3rd and the customer requested compensation.",
+  },
+];
+
+export const RBS_STARTER_SUGGESTIONS: readonly ChatStarterRow[] = [
+  {
+    promptCompareScenarioIndex: 0,
+    title: "Same Input, Different Stakeholders",
+    text: "Sales dropped 15% last quarter due to supply chain issues and lower conversion rates.",
+  },
+  {
+    promptCompareScenarioIndex: 1,
+    title: "Customer Complaint",
+    text: "The product broke after 2 days and I’m very disappointed.",
+  },
+  {
+    promptCompareScenarioIndex: 2,
+    title: "Sales Data Insight",
+    text: "Revenue increased 10% but profit dropped 5%.",
+  },
+  {
+    promptCompareScenarioIndex: 3,
+    title: "Incident Report",
+    text: "System outage lasted 2 hours affecting checkout.",
   },
 ];
 
