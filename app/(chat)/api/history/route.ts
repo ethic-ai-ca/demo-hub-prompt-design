@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { ChatbotError } from "@/lib/errors";
 
-export async function GET(request: NextRequest) {
+export function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
 
   const startingAfter = searchParams.get("starting_after");
@@ -17,6 +17,6 @@ export async function GET(request: NextRequest) {
   return Response.json({ chats: [], hasMore: false });
 }
 
-export async function DELETE() {
+export function DELETE() {
   return Response.json({ ok: true }, { status: 200 });
 }

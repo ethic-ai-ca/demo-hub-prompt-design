@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSelectedLayoutSegment } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useActiveChat } from "@/hooks/use-active-chat";
 import {
@@ -36,8 +36,12 @@ import { buildInitialCompareColumns } from "./prompt-compare-grid";
 
 export function ChatShell() {
   const pathname = usePathname();
+  const selectedSegment = useSelectedLayoutSegment();
   const labFromRoute = useOptionalCompareLabFromRoute();
-  const compareLab = labFromRoute ?? pathnameToCompareLab(pathname);
+  const routeCompareLab =
+    selectedSegment === "gc" ? "gc" : selectedSegment === "pi" ? "pi" : null;
+  const compareLab =
+    routeCompareLab ?? labFromRoute ?? pathnameToCompareLab(pathname);
 
   useEffect(() => {
     if (pathname === PI_HOME_PATH) {
@@ -66,7 +70,6 @@ export function ChatShell() {
     isLoading,
     votes,
     currentModelId,
-    setCurrentModelId,
   } = useActiveChat();
 
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(
@@ -85,6 +88,8 @@ export function ChatShell() {
   >([]);
   const [isPromptCompareStreaming, setIsPromptCompareStreaming] =
     useState(false);
+  const shouldHidePromptInput =
+    routeCompareLab === "pi" || promptCompareSession?.compareLab === "pi";
   const compareAbortRef = useRef<AbortController | null>(null);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
   const { setArtifact } = useArtifact();
@@ -236,6 +241,7 @@ export function ChatShell() {
                   attachments={attachments}
                   chatId={chatId}
                   editingMessage={editingMessage}
+                  hidePromptInput={shouldHidePromptInput}
                   input={input}
                   isLoading={isLoading}
                   isPromptCompareStreaming={isPromptCompareStreaming}

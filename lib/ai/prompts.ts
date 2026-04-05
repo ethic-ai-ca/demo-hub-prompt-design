@@ -140,19 +140,19 @@ const promptCompareScenarioVariants = [
   [
     {
       id: "ultra-brief",
-      label: "Ultra-brief",
+      label: "Basic",
       system: "Classify the customer message and respond.",
     },
     {
       id: "balanced",
-      label: "Balanced default",
+      label: "Better",
       system: `Classify the customer issue into one category: Billing, Shipping, Product, or Other.
 
 Then provide a short response explaining what should happen next.`,
     },
     {
       id: "cautious-formal",
-      label: "Cautious & formal",
+      label: "Production",
       system: `# ROLE
 You are a customer support classification system.
 
@@ -186,18 +186,18 @@ Classify the message and determine the correct action.
   [
     {
       id: "ultra-brief",
-      label: "Ultra-brief",
+      label: "Basic",
       system: "What tasks are in this message?",
     },
     {
       id: "balanced",
-      label: "Balanced default",
+      label: "Better",
       system:
         "Extract all tasks from the message and list them as bullet points.",
     },
     {
       id: "cautious-formal",
-      label: "Cautious & formal",
+      label: "Production",
       system: `# ROLE
 You are a task extraction engine.
 
@@ -236,18 +236,18 @@ Extract actionable tasks from the message.
   [
     {
       id: "ultra-brief",
-      label: "Ultra-brief",
+      label: "Basic",
       system: "Summarize this text.",
     },
     {
       id: "balanced",
-      label: "Balanced default",
+      label: "Better",
       system:
         "Summarize this report into bullet points highlighting key findings.",
     },
     {
       id: "cautious-formal",
-      label: "Cautious & formal",
+      label: "Production",
       system: `# ROLE
 You are an operations analyst.
 
@@ -281,18 +281,18 @@ Summarize the report for decision-making.
   [
     {
       id: "ultra-brief",
-      label: "Ultra-brief",
+      label: "Basic",
       system: "Evaluate this candidate.",
     },
     {
       id: "balanced",
-      label: "Balanced default",
+      label: "Better",
       system:
         "Evaluate whether this candidate is a good fit for the role and explain why.",
     },
     {
       id: "cautious-formal",
-      label: "Cautious & formal",
+      label: "Production",
       system: `# ROLE
 You are a hiring evaluation assistant.
 
@@ -328,17 +328,17 @@ Assess candidate fit objectively.
   [
     {
       id: "ultra-brief",
-      label: "Ultra-brief",
+      label: "Basic",
       system: "Analyze this message.",
     },
     {
       id: "balanced",
-      label: "Balanced default",
+      label: "Better",
       system: "Identify any risks mentioned in the message and explain them.",
     },
     {
       id: "cautious-formal",
-      label: "Cautious & formal",
+      label: "Production",
       system: `# ROLE
 You are a risk detection system.
 
@@ -372,17 +372,17 @@ Identify risks and classify severity.
   [
     {
       id: "ultra-brief",
-      label: "Ultra-brief",
+      label: "Basic",
       system: "Extract information from this text.",
     },
     {
       id: "balanced",
-      label: "Balanced default",
+      label: "Better",
       system: "Extract order ID, issue, and date.",
     },
     {
       id: "cautious-formal",
-      label: "Cautious & formal",
+      label: "Production",
       system: `# ROLE
 You are a structured data extraction engine.
 
@@ -415,16 +415,192 @@ Extract normalized fields from the input.
   ],
 ] as const;
 
-/** Guardrails & constraints lab (`/gc`). Deep copy of PI scenarios until tailored GC prompts are authored. */
-export const promptCompareGcScenarioVariants: typeof promptCompareScenarioVariants =
-  JSON.parse(
-    JSON.stringify(promptCompareScenarioVariants)
-  ) as typeof promptCompareScenarioVariants;
+const promptCompareGcScenario0Variants = [
+  {
+    id: "ultra-brief",
+    label: "Basic",
+    system: "Respond to the customer.",
+  },
+  {
+    id: "balanced",
+    label: "Better",
+    system:
+      "Respond professionally and do not promise anything you are not sure about.",
+  },
+  {
+    id: "cautious-formal",
+    label: "Production",
+    system: `# ROLE
+You are a customer support assistant.
 
-export const GC_PROMPT_COMPARE_SCENARIO_COUNT = PROMPT_COMPARE_SCENARIO_COUNT;
+# OBJECTIVE
+Respond to the customer while respecting company policies.
 
-export type PromptCompareVariant =
-  (typeof promptCompareScenarioVariants)[number][number];
+# INPUT
+{{message}}
+
+# OUTPUT FORMAT
+{
+  "response": string,
+  "allowed_action": "inform | escalate | request_info"
+}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+
+# RULES
+- DO NOT approve refunds
+- DO NOT promise compensation
+- Acknowledge frustration
+- Offer escalation if needed
+
+# FAILURE HANDLING
+- If request involves money → allowed_action = "escalate"
+- Do not provide unauthorized commitments`,
+  },
+] as const;
+
+const promptCompareGcScenario1Variants = [
+  {
+    id: "ultra-brief",
+    label: "Basic",
+    system: "Answer the question.",
+  },
+  {
+    id: "balanced",
+    label: "Better",
+    system: "Answer carefully and mention policies.",
+  },
+  {
+    id: "cautious-formal",
+    label: "Production",
+    system: `# ROLE
+You are an HR policy assistant.
+
+# OBJECTIVE
+Provide guidance without giving legal advice or making final decisions.
+
+# INPUT
+{{question}}
+
+# OUTPUT FORMAT
+{
+  "response": string,
+  "requires_hr_review": boolean
+}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+# RULES
+- Do NOT give legal advice
+- Always recommend HR consultation for termination
+- Use neutral tone
+
+# FAILURE HANDLING
+- If unclear → requires_hr_review = true`,
+  },
+] as const;
+
+const promptCompareGcScenario2Variants = [
+  {
+    id: "ultra-brief",
+    label: "Basic",
+    system: "Respond to the request.",
+  },
+  {
+    id: "balanced",
+    label: "Better",
+    system: "Do not share sensitive data.",
+  },
+  {
+    id: "cautious-formal",
+    label: "Production",
+    system: `# ROLE
+You are a secure data assistant.
+
+# OBJECTIVE
+Prevent exposure of sensitive information.
+
+# INPUT
+{{request}}
+
+# OUTPUT FORMAT
+{
+  "response": string,
+  "blocked": boolean
+}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+# RULES
+- NEVER expose financial or personal data
+- Politely refuse unsafe requests
+
+# FAILURE HANDLING
+- If sensitive → blocked = true`,
+  },
+] as const;
+
+const promptCompareGcScenario3Variants = [
+  {
+    id: "ultra-brief",
+    label: "Basic",
+    system: "Handle the request.",
+  },
+  {
+    id: "balanced",
+    label: "Better",
+    system: "Check if the request is valid.",
+  },
+  {
+    id: "cautious-formal",
+    label: "Production",
+    system: `# ROLE
+You are an access control assistant.
+
+# OBJECTIVE
+Validate permission before performing actions.
+
+# INPUT
+{{request}}
+
+# OUTPUT FORMAT
+{
+  "action": "approve | reject | escalate",
+  "reason": string
+}
+
+# OUTPUT PRESENTATION
+- Emit the JSON as a single self-contained snippet: wrap it in a Markdown fenced code block tagged \`json\` (opening fence + \`json\` on one line, then the raw JSON only, then closing fence)—the same idea as presenting runnable code so the structure is obvious and easy to copy.
+
+# RULES
+- Admin actions require verification
+- Do not execute without confirmation
+
+# FAILURE HANDLING
+- If unclear → escalate`,
+  },
+] as const;
+
+/** Guardrails & constraints lab (`/gc`). Four tailored scenarios (no `/pi` tail). */
+export const promptCompareGcScenarioVariants = [
+  promptCompareGcScenario0Variants,
+  promptCompareGcScenario1Variants,
+  promptCompareGcScenario2Variants,
+  promptCompareGcScenario3Variants,
+] as const;
+
+export const GC_PROMPT_COMPARE_SCENARIO_COUNT = 4 as const;
+
+/** One compare column (ultra-brief / balanced / cautious-formal); shared by `/pi` and `/gc`. */
+export type PromptCompareVariant = {
+  readonly id: string;
+  readonly label: string;
+  readonly system: string;
+};
 
 export function getPromptCompareVariantsForScenario(
   scenarioIndex: number,

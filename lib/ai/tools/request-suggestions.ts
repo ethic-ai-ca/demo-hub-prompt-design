@@ -1,8 +1,8 @@
 import { Output, streamText, tool, type UIMessageStreamWriter } from "ai";
-import type { ToolSession } from "@/lib/tool-session";
 import { z } from "zod";
 import { getDocumentById, saveSuggestions } from "@/lib/db/queries";
 import type { Suggestion } from "@/lib/db/schema";
+import type { ToolSession } from "@/lib/tool-session";
 import type { ChatMessage } from "@/lib/types";
 import { generateUUID } from "@/lib/utils";
 import { getLanguageModel } from "../providers";
@@ -31,7 +31,7 @@ export const requestSuggestions = ({
     execute: async ({ documentId }) => {
       const document = await getDocumentById({ id: documentId });
 
-      if (!document || !document.content) {
+      if (!document?.content) {
         return {
           error: "Document not found",
         };

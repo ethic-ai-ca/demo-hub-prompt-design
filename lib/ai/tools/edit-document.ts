@@ -1,7 +1,7 @@
 import { tool, type UIMessageStreamWriter } from "ai";
-import type { ToolSession } from "@/lib/tool-session";
 import { z } from "zod";
 import { getDocumentById, saveDocument } from "@/lib/db/queries";
+import type { ToolSession } from "@/lib/tool-session";
 import type { ChatMessage } from "@/lib/types";
 
 type EditDocumentProps = {

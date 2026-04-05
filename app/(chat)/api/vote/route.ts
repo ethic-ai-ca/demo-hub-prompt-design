@@ -7,7 +7,7 @@ const voteSchema = z.object({
   type: z.enum(["up", "down"]),
 });
 
-export async function GET(request: Request) {
+export function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const chatId = searchParams.get("chatId");
 

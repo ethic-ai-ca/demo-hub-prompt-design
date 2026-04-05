@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       country,
     };
 
-    const modelCapabilities = await getCapabilities();
+    const modelCapabilities = getCapabilities();
     const capabilities = modelCapabilities[chatModel];
     const isReasoningModel = capabilities?.reasoning === true;
 

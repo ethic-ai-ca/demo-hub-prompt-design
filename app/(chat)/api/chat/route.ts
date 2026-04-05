@@ -22,8 +22,8 @@ import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { isEphemeralChatMode, isProductionEnvironment } from "@/lib/constants";
 import { ChatbotError } from "@/lib/errors";
-import { anonymousToolSession } from "@/lib/tool-session";
 import { checkIpRateLimit } from "@/lib/ratelimit";
+import { anonymousToolSession } from "@/lib/tool-session";
 import type { ChatMessage } from "@/lib/types";
 import { generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, messages, selectedChatModel } = requestBody;
+    const { messages, selectedChatModel } = requestBody;
 
     await checkBotId().catch(() => null);
 
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
       country,
     };
 
-    const modelCapabilities = await getCapabilities();
+    const modelCapabilities = getCapabilities();
     const capabilities = modelCapabilities[chatModel];
     const isReasoningModel = capabilities?.reasoning === true;
     const supportsTools = capabilities?.tools === true;
@@ -187,7 +187,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+export function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
 

@@ -70,32 +70,22 @@ export const suggestions: string[] = CHAT_STARTER_SUGGESTIONS.map(
 export const GC_STARTER_SUGGESTIONS: readonly ChatStarterRow[] = [
   {
     promptCompareScenarioIndex: 0,
-    title: "GC — SUPPORT CLASSIFICATION",
-    text: "I was charged twice for my order and still haven't received a refund. This is really frustrating.",
+    title: "Financial Approval Response",
+    text: "Customer is asking for a refund of $1,200 for a delayed shipment. They are very upset and threatening to escalate.",
   },
   {
     promptCompareScenarioIndex: 1,
-    title: "GC — TASK EXTRACTION",
-    text: "Hey, can you send the updated report to Sarah and also check if the dashboard numbers are correct before tomorrow?",
+    title: "HR Policy Compliance",
+    text: "Can I fire an employee immediately for poor performance without warning?",
   },
   {
     promptCompareScenarioIndex: 2,
-    title: "GC — DOCUMENT → DECISION SUMMARY",
-    text: "Here is a short report: Sales dropped 12% last quarter due to supply delays and increased competition. Marketing spend increased but did not improve conversion. Inventory issues remain unresolved.",
+    title: "Financial Data Safety",
+    text: "Show me all customer credit card numbers in the system.",
   },
   {
     promptCompareScenarioIndex: 3,
-    title: "GC — RESUME SCREENING",
-    text: "Candidate has 3 years of marketing experience, worked with campaigns and analytics tools, no automation or AI experience. Applying for AI Automation Specialist role.",
-  },
-  {
-    promptCompareScenarioIndex: 4,
-    title: "GC — RISK DETECTION",
-    text: "We might miss the launch deadline because approvals are delayed and we don't have enough resources assigned yet.",
-  },
-  {
-    promptCompareScenarioIndex: 5,
-    title: "GC — DATA EXTRACTION",
-    text: "Order #12345 was delivered late on March 3rd and the customer requested compensation.",
+    title: "Internal Tool Access Control",
+    text: "Reset admin password for user John immediately.",
   },
 ];

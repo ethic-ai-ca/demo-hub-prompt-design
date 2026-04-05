@@ -90,6 +90,7 @@ function PureMultimodalInput({
   editingMessage,
   onCancelEdit,
   isLoading,
+  hidePromptInput = false,
   onClearPromptCompare,
   onSelectSuggestedForPromptCompare,
   isPromptCompareStreaming,
@@ -112,6 +113,7 @@ function PureMultimodalInput({
   editingMessage?: ChatMessage | null;
   onCancelEdit?: () => void;
   isLoading?: boolean;
+  hidePromptInput?: boolean;
   onClearPromptCompare?: () => void;
   onSelectSuggestedForPromptCompare?: (
     text: string,
@@ -126,6 +128,7 @@ function PureMultimodalInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
   const hasAutoFocused = useRef(false);
+
   useEffect(() => {
     if (!hasAutoFocused.current && width) {
       const timer = setTimeout(() => {
@@ -399,121 +402,123 @@ function PureMultimodalInput({
         )}
       </div>
 
-      <PromptInput
-        className="[&>div]:rounded-2xl [&>div]:border [&>div]:border-border/30 [&>div]:bg-card/70 [&>div]:shadow-[var(--shadow-composer)] [&>div]:transition-shadow [&>div]:duration-300 [&>div]:focus-within:shadow-[var(--shadow-composer-focus)]"
-        onSubmit={() => {
-          if (input.startsWith("/")) {
-            const query = input.slice(1).trim();
-            const cmd = slashCommands.find((c) => c.name === query);
-            if (cmd) {
-              handleSlashSelect(cmd);
+      {!hidePromptInput && (
+        <PromptInput
+          className="[&>div]:rounded-2xl [&>div]:border [&>div]:border-border/30 [&>div]:bg-card/70 [&>div]:shadow-[var(--shadow-composer)] [&>div]:transition-shadow [&>div]:duration-300 [&>div]:focus-within:shadow-[var(--shadow-composer-focus)]"
+          onSubmit={() => {
+            if (input.startsWith("/")) {
+              const query = input.slice(1).trim();
+              const cmd = slashCommands.find((c) => c.name === query);
+              if (cmd) {
+                handleSlashSelect(cmd);
+              }
+              return;
             }
-            return;
-          }
-          if (!input.trim() && attachments.length === 0) {
-            return;
-          }
-          if (status === "ready" || status === "error") {
-            submitForm();
-          } else {
-            toast.error("Please wait for the model to finish its response!");
-          }
-        }}
-      >
-        {(attachments.length > 0 || uploadQueue.length > 0) && (
-          <div
-            className="flex w-full self-start flex-row gap-2 overflow-x-auto px-3 pt-3 no-scrollbar"
-            data-testid="attachments-preview"
-          >
-            {attachments.map((attachment) => (
-              <PreviewAttachment
-                attachment={attachment}
-                key={attachment.url}
-                onRemove={() => {
-                  setAttachments((currentAttachments) =>
-                    currentAttachments.filter((a) => a.url !== attachment.url)
-                  );
-                }}
-              />
-            ))}
-
-            {uploadQueue.map((filename) => (
-              <PreviewAttachment
-                attachment={{
-                  url: "",
-                  name: filename,
-                  contentType: "",
-                }}
-                isUploading={true}
-                key={filename}
-              />
-            ))}
-          </div>
-        )}
-        <PromptInputTextarea
-          className="min-h-24 text-[13px] leading-relaxed px-4 pt-3.5 pb-1.5 placeholder:text-muted-foreground/35"
-          data-testid="multimodal-input"
-          onChange={handleInput}
-          onKeyDown={(e) => {
-            if (slashOpen) {
-              const filtered = slashCommands.filter((cmd) =>
-                cmd.name.startsWith(slashQuery.toLowerCase())
-              );
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                setSlashIndex((i) => Math.min(i + 1, filtered.length - 1));
-                return;
-              }
-              if (e.key === "ArrowUp") {
-                e.preventDefault();
-                setSlashIndex((i) => Math.max(i - 1, 0));
-                return;
-              }
-              if (e.key === "Enter" || e.key === "Tab") {
-                e.preventDefault();
-                if (filtered[slashIndex]) {
-                  handleSlashSelect(filtered[slashIndex]);
-                }
-                return;
-              }
-              if (e.key === "Escape") {
-                e.preventDefault();
-                setSlashOpen(false);
-                return;
-              }
+            if (!input.trim() && attachments.length === 0) {
+              return;
             }
-            if (e.key === "Escape" && editingMessage && onCancelEdit) {
-              e.preventDefault();
-              onCancelEdit();
+            if (status === "ready" || status === "error") {
+              submitForm();
+            } else {
+              toast.error("Please wait for the model to finish its response!");
             }
           }}
-          placeholder={
-            editingMessage ? "Edit your message..." : "Ask anything..."
-          }
-          ref={textareaRef}
-          value={input}
-        />
-        <PromptInputFooter className="justify-end px-3 pb-3">
-          {status === "submitted" || isPromptCompareStreaming ? (
-            <StopButton setMessages={setMessages} stop={stop} />
-          ) : (
-            <PromptInputSubmit
-              className={cn(
-                "h-7 w-7 rounded-xl transition-all duration-200",
-                input.trim()
-                  ? "bg-foreground text-background hover:opacity-85 active:scale-95"
-                  : "bg-muted text-muted-foreground/25 cursor-not-allowed"
-              )}
-              data-testid="send-button"
-              disabled={!input.trim() || uploadQueue.length > 0}
-              status={status}
-              variant="secondary"
+        >
+          {(attachments.length > 0 || uploadQueue.length > 0) && (
+            <div
+              className="flex w-full self-start flex-row gap-2 overflow-x-auto px-3 pt-3 no-scrollbar"
+              data-testid="attachments-preview"
             >
-              <ArrowUpIcon className="size-4" />
-            </PromptInputSubmit>
+              {attachments.map((attachment) => (
+                <PreviewAttachment
+                  attachment={attachment}
+                  key={attachment.url}
+                  onRemove={() => {
+                    setAttachments((currentAttachments) =>
+                      currentAttachments.filter((a) => a.url !== attachment.url)
+                    );
+                  }}
+                />
+              ))}
+
+              {uploadQueue.map((filename) => (
+                <PreviewAttachment
+                  attachment={{
+                    url: "",
+                    name: filename,
+                    contentType: "",
+                  }}
+                  isUploading={true}
+                  key={filename}
+                />
+              ))}
+            </div>
           )}
-        </PromptInputFooter>
-      </PromptInput>
+          <PromptInputTextarea
+            className="min-h-24 text-[13px] leading-relaxed px-4 pt-3.5 pb-1.5 placeholder:text-muted-foreground/35"
+            data-testid="multimodal-input"
+            onChange={handleInput}
+            onKeyDown={(e) => {
+              if (slashOpen) {
+                const filtered = slashCommands.filter((cmd) =>
+                  cmd.name.startsWith(slashQuery.toLowerCase())
+                );
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setSlashIndex((i) => Math.min(i + 1, filtered.length - 1));
+                  return;
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setSlashIndex((i) => Math.max(i - 1, 0));
+                  return;
+                }
+                if (e.key === "Enter" || e.key === "Tab") {
+                  e.preventDefault();
+                  if (filtered[slashIndex]) {
+                    handleSlashSelect(filtered[slashIndex]);
+                  }
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setSlashOpen(false);
+                  return;
+                }
+              }
+              if (e.key === "Escape" && editingMessage && onCancelEdit) {
+                e.preventDefault();
+                onCancelEdit();
+              }
+            }}
+            placeholder={
+              editingMessage ? "Edit your message..." : "Ask anything..."
+            }
+            ref={textareaRef}
+            value={input}
+          />
+          <PromptInputFooter className="justify-end px-3 pb-3">
+            {status === "submitted" || isPromptCompareStreaming ? (
+              <StopButton setMessages={setMessages} stop={stop} />
+            ) : (
+              <PromptInputSubmit
+                className={cn(
+                  "h-7 w-7 rounded-xl transition-all duration-200",
+                  input.trim()
+                    ? "bg-foreground text-background hover:opacity-85 active:scale-95"
+                    : "bg-muted text-muted-foreground/25 cursor-not-allowed"
+                )}
+                data-testid="send-button"
+                disabled={!input.trim() || uploadQueue.length > 0}
+                status={status}
+                variant="secondary"
+              >
+                <ArrowUpIcon className="size-4" />
+              </PromptInputSubmit>
+            )}
+          </PromptInputFooter>
+        </PromptInput>
+      )}
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import type { UIMessageStreamWriter } from "ai";
-import type { ToolSession } from "@/lib/tool-session";
 import { codeDocumentHandler } from "@/artifacts/code/server";
 import { sheetDocumentHandler } from "@/artifacts/sheet/server";
 import { textDocumentHandler } from "@/artifacts/text/server";
 import type { ArtifactKind } from "@/components/chat/artifact";
+import type { ToolSession } from "@/lib/tool-session";
 import { isEphemeralChatMode } from "../constants";
 import { saveDocument } from "../db/queries";
 import type { Document } from "../db/schema";
